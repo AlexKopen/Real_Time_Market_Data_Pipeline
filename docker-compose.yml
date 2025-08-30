@@ -121,7 +121,7 @@ services:
   pipeline:
     build:
       context: .
-      dockerfile: pipeline.Dockerfile
+      dockerfile: Dockerfile-local
     container_name: pipeline
     ports:
       - "8001:8001"
