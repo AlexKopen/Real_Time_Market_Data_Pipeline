@@ -1,11 +1,11 @@
-FROM python:3.10-slim
+FROM openjdk:17-slim
 
 WORKDIR /app
 
 # --- Install base dependencies ---
-RUN apt-get update && \
-    apt-get install -y gcc wget curl openjdk-17-jre-headless gnupg \
-                       supervisor ca-certificates unzip tar && \
+    RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-venv gcc wget curl supervisor unzip tar && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
     rm -rf /var/lib/apt/lists/*
 
 # --- Install Python deps ---
@@ -13,20 +13,24 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Install Kafka ---
-ENV KAFKA_VERSION=3.7.0 \
-    SCALA_VERSION=2.13
-RUN wget https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz && \
-    tar -xvzf kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz -C /opt && \
-    mv /opt/kafka_${SCALA_VERSION}-${KAFKA_VERSION} /opt/kafka && \
-    rm kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
+ENV KAFKA_VERSION=3.7.0
+ENV SCALA_VERSION=2.13    
+RUN wget -qO- "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz" | tar xz -C /opt && \
+    mv /opt/kafka_${SCALA_VERSION}-${KAFKA_VERSION} /opt/kafka
 
-# --- Install ClickHouse ---
-RUN wget -qO - https://packages.clickhouse.com/CLICKHOUSE-KEY.GPG | apt-key add - && \
-    echo "deb https://packages.clickhouse.com/deb stable main" | tee \
-    /etc/apt/sources.list.d/clickhouse.list && \
-    apt-get update && \
-    apt-get install -y clickhouse-server clickhouse-client && \
-    rm -rf /var/lib/apt/lists/*
+# Install prerequisite packages
+RUN apt-get install -y apt-transport-https ca-certificates curl gnupg
+
+# Download the ClickHouse GPG key and store it in the keyring
+RUN curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+
+# Get the system architecture
+RUN ARCH=$(dpkg --print-architecture) && echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=${ARCH}] https://packages.clickhouse.com/deb stable main" | tee /etc/apt/sources.list.d/clickhouse.list
+
+# Update apt package lists
+RUN apt-get update
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get install -y clickhouse-server clickhouse-client
 
 # --- Install Grafana ---
 RUN wget https://dl.grafana.com/oss/release/grafana_11.0.0_amd64.deb && \
