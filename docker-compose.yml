@@ -124,7 +124,7 @@ services:
       dockerfile: pipeline.Dockerfile
     container_name: pipeline
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     ports:
       - "8001:8001"
     depends_on:
